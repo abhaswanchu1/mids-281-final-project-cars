@@ -1,8 +1,7 @@
-import os
+# Import Packages
 import cv2
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
 from skimage.feature import hog, match_template
 from skimage import data, exposure
 import matplotlib.pyplot as plt
@@ -15,33 +14,11 @@ print("Packages Loaded")
 ##############################################################################################
 tic = time()
 
-# Function to gather images from both directories
-dir_1 = r'C:\Users\mhurth\REPO\MIDS281\train'
-dir_2 = r'C:\Users\mhurth\REPO\MIDS281\test'
 
-# For each directory, look at subdirectories and gather image names if the subdirectory has "Chevrolet",
-# "Dodge", "Audi", or "BMW" in the directory Name
-def gather_images(dir_1, dir_2):
-    images = []
-    for dir_path in [dir_1, dir_2]:
-        for root, dirs, files in os.walk(dir_path):
-            for file in files:
-                if file.endswith('.jpg'):
-                    if any(x in root for x in ['Chevrolet', 'Dodge', 'Audi', 'BMW']):
-                        image = {}
-                        image["path"] = os.path.join(root, file) # store path
-                        image["class"] = os.path.basename(root)
-                        image["make"] = image["class"].split()[0] # store make
-                        images.append(image)
-    image_df = pd.DataFrame(images)
-    return image_df
-
-image_paths = gather_images(dir_1, dir_2)
-
-# Assign each row to train/test 70/30 split but stratify by make
-train_df, test_df = train_test_split(image_paths, test_size=0.3, stratify=image_paths["make"], random_state=42)
-train_df.to_csv("train_images_split.csv", index=False)
-test_df.to_csv("test_images_split.csv", index=False)
+train_df = pd.read_excel(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\cars_classes_split.xlsx",
+                         sheet_name='train')
+test_df = pd.read_excel(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\cars_classes_split.xlsx",
+                        sheet_name='test')
 
 # For each image in train_df load in the image and resize the image to 224x224
 # Convert the image to a numpy array in RGP format
@@ -61,12 +38,12 @@ def load_images(df):
     images = []
     Y = []
     for index, row in df.iterrows():
-        img = load_jpg(row["path"])
+        img = load_jpg(row["image_path"])
         images.append(img)
-        Y.append(row["make"])
+        Y.append(row["brand"])
     return images, Y
 
-train_images, targets = load_images(train_df[0:10])
+train_images, targets = load_images(train_df[0:1000])
 
 # Plot the Images and their labels
 plt.figure(figsize=(20,10))
@@ -78,6 +55,7 @@ for i in range(10):
 plt.show()
 
 print("Images Loaded in: ", time()-tic)
+
 ##############################################################################################
 #######################  Augment Images  #####################################################
 ##############################################################################################
@@ -111,6 +89,7 @@ train_images.extend(augmented_images)
 targets.extend(augmented_targets)
 
 print("Images Augmented in: ", time()-tic)
+
 ##############################################################################################
 #######################  Feature Building ####################################################
 ##############################################################################################
@@ -173,6 +152,7 @@ for i in range(20):
     plt.show()
 
 print("Features Built in: ", time()-tic)
+
 ##############################################################################################
 ############################ Flatten and Stack Features Images ###############################
 ##############################################################################################
@@ -194,6 +174,7 @@ def stack_rows(features):
 stacked_features = stack_rows([hog, fourier, canny])
 
 print("Features Stacked in: ", time()-tic)
+
 ##############################################################################################
 ################################ Principal Component Analysis ################################
 ##############################################################################################
@@ -217,9 +198,11 @@ plt.title('Explained Variance vs. Number of Components')
 plt.grid()
 plt.show()
 
-
 print("PCA Completed in: ", time()-tic)
 
+##############################################################################################
+################################ Classification  #############################################
+##############################################################################################
 
 
 
