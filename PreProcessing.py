@@ -118,10 +118,11 @@ def hog_features(images):
     for img in images:
         # fd, hog_feature = hog(img, orientations=8, pixels_per_cell=(16, 16), visualize=True,
         #                   cells_per_block=(1, 1), channel_axis=-1) # Uncomment to Plot HOG feature
+        # hog_image_rescaled = exposure.rescale_intensity(hog_feature, in_range=(0, 10))
+        # hog_features.append(hog_image_rescaled)
         hog_feature = hog(img, orientations=8, pixels_per_cell=(16, 16),
                            cells_per_block=(1, 1), channel_axis=-1)
-        hog_image_rescaled = exposure.rescale_intensity(hog_feature, in_range=(0, 10))
-        hog_features.append(hog_image_rescaled)
+        hog_features.append(hog_feature)
     return hog_features
 
 
