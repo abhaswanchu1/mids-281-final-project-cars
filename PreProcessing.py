@@ -7,6 +7,10 @@ from skimage import data, exposure
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 from time import time
+
+from sklearn.preprocessing import StandardScaler, LabelBinarizer
+import pickle
+
 print("Packages Loaded")
 
 ##############################################################################################
@@ -14,11 +18,11 @@ print("Packages Loaded")
 ##############################################################################################
 tic = time()
 
-
 train_df = pd.read_excel(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\cars_classes_split.xlsx",
                          sheet_name='train')
 test_df = pd.read_excel(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\cars_classes_split.xlsx",
                         sheet_name='test')
+
 
 # For each image in train_df load in the image and resize the image to 224x224
 # Convert the image to a numpy array in RGP format
@@ -28,11 +32,12 @@ def load_jpg(image_path):
     # Crop image so that it is square (DONT CHANGE ASPECT RATIO)
     h, w, _ = img.shape
     if h > w:
-        img = img[(h-w)//2:(h+w)//2, :]
+        img = img[(h - w) // 2:(h + w) // 2, :]
     else:
-        img = img[:, (w-h)//2:(w+h)//2]
+        img = img[:, (w - h) // 2:(w + h) // 2]
     img = cv2.resize(img, (224, 224))
     return img
+
 
 def load_images(df):
     images = []
@@ -43,23 +48,26 @@ def load_images(df):
         Y.append(row["brand"])
     return images, Y
 
-train_images, targets = load_images(train_df[0:1000])
+
+train_images, train_targets = load_images(train_df)
+test_images, test_targets = load_images(test_df)
 
 # Plot the Images and their labels
-plt.figure(figsize=(20,10))
+plt.figure(figsize=(20, 10))
 for i in range(10):
-    plt.subplot(2, 5, i+1)
+    plt.subplot(2, 5, i + 1)
     plt.imshow(train_images[i])
-    plt.title(targets[i])
+    plt.title(train_targets[i])
     plt.axis('off')
 plt.show()
 
-print("Images Loaded in: ", time()-tic)
+print("Images Loaded in: ", time() - tic)
 
 ##############################################################################################
 #######################  Augment Images  #####################################################
 ##############################################################################################
 tic = time()
+
 
 def augment_images(images, targets):
     # OKAY TO FLIP IMAGES, but rotations and shearing will cause misalignment and probably not help blind
@@ -74,21 +82,27 @@ def augment_images(images, targets):
         augmented_target.append(targets[i])
     return augmented_images, augmented_target
 
-# # Plot the Augmented Images and their labels
-augmented_images, augmented_targets = augment_images(train_images, targets)
 
-plt.figure(figsize=(20,10))
+# # Plot the Augmented Images and their labels
+augmented_images, augmented_targets = augment_images(train_images, train_targets)
+augmented_images_test, augmented_targets_test = augment_images(test_images, test_targets)
+
+plt.figure(figsize=(20, 10))
 for i in range(10):
-    plt.subplot(2, 5, i+1)
+    plt.subplot(2, 5, i + 1)
     plt.imshow(augmented_images[i])
     plt.title(augmented_targets[i])
     plt.axis('off')
 plt.show()
 
 train_images.extend(augmented_images)
-targets.extend(augmented_targets)
+train_targets.extend(augmented_targets)
+test_images.extend(augmented_images_test)
+test_targets.extend(augmented_targets_test)
 
-print("Images Augmented in: ", time()-tic)
+del (augmented_images, augmented_targets, augmented_images_test, augmented_targets_test)
+
+print("Images Augmented in: ", time() - tic)
 
 ##############################################################################################
 #######################  Feature Building ####################################################
@@ -98,14 +112,18 @@ HOG transform, Forrier Transform, and Canny Edge Detect on images, save features
 '''
 tic = time()
 
+
 def hog_features(images):
     hog_features = []
     for img in images:
-        fd, hog_feature = hog(img, orientations=8, pixels_per_cell=(16, 16), cells_per_block=(1, 1),
-                          visualize=True, channel_axis=-1)
+        # fd, hog_feature = hog(img, orientations=8, pixels_per_cell=(16, 16), visualize=True,
+        #                   cells_per_block=(1, 1), channel_axis=-1) # Uncomment to Plot HOG feature
+        hog_feature = hog(img, orientations=8, pixels_per_cell=(16, 16),
+                           cells_per_block=(1, 1), channel_axis=-1)
         hog_image_rescaled = exposure.rescale_intensity(hog_feature, in_range=(0, 10))
         hog_features.append(hog_image_rescaled)
     return hog_features
+
 
 def fourier_features(images):
     fourier_features = []
@@ -114,10 +132,11 @@ def fourier_features(images):
     win = win / np.mean(win)
     for img in images:
         gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        F = np.fft.fftshift(np.fft.fft2(gray_img*win))
+        F = np.fft.fftshift(np.fft.fft2(gray_img * win))
         Fmag = np.abs(F)
         fourier_features.append(Fmag)
     return fourier_features
+
 
 def canny_features(images):
     canny_features = []
@@ -126,38 +145,47 @@ def canny_features(images):
         canny_features.append(canny)
     return canny_features
 
-hog = hog_features(train_images)
-fourier = fourier_features(train_images)
-canny = canny_features(train_images)
 
-for i in range(20):
-    # plot the image, hog, fourier, and canny
-    plt.figure(figsize=(20,20))
-    plt.subplot(2, 2, 1)
-    plt.imshow(train_images[i])
-    plt.title("Image")
-    plt.axis('off')
-    plt.subplot(2, 2, 2)
-    plt.imshow(hog[i], cmap='gray')
-    plt.title("HOG")
-    plt.axis('off')
-    plt.subplot(2, 2, 3)
-    plt.imshow(np.log(fourier[i]), cmap='gray')
-    plt.title("Fourier")
-    plt.axis('off')
-    plt.subplot(2, 2, 4)
-    plt.imshow(canny[i], cmap='gray')
-    plt.title("Canny")
-    plt.axis('off')
-    plt.show()
+# Train Features
+hog_train = hog_features(train_images)
+fourier_train = fourier_features(train_images)
+canny_train = canny_features(train_images)
 
-print("Features Built in: ", time()-tic)
+# Test Features
+hog_test = hog_features(test_images)
+fourier_test = fourier_features(test_images)
+canny_test = canny_features(test_images)
+
+# for i in range(5):
+#     # plot the image, hog, fourier, and canny
+#     plt.figure(figsize=(20, 20))
+#     plt.subplot(2, 2, 1)
+#     plt.imshow(train_images[i])
+#     plt.title("Image")
+#     plt.axis('off')
+#     plt.subplot(2, 2, 2)
+#     plt.imshow(hog_train[i], cmap='gray')
+#     plt.title("HOG")
+#     plt.axis('off')
+#     plt.subplot(2, 2, 3)
+#     plt.imshow(np.log(fourier_train[i]), cmap='gray')
+#     plt.title("Fourier")
+#     plt.axis('off')
+#     plt.subplot(2, 2, 4)
+#     plt.imshow(canny_train[i], cmap='gray')
+#     plt.title("Canny")
+#     plt.axis('off')
+#     plt.show()
+
+print("Features Built in: ", time() - tic)
 
 ##############################################################################################
 ############################ Flatten and Stack Features Images ###############################
 ##############################################################################################
 # Flatten all features into a single row
 tic = time()
+
+
 def stack_rows(features):
     '''
     Efficiently stacks multiple lists of image features row-wise.
@@ -171,9 +199,12 @@ def stack_rows(features):
     return stacked
 
 
-stacked_features = stack_rows([hog, fourier, canny])
+stacked_features = stack_rows([hog_train, fourier_train, canny_train])
+stacked_features_test = stack_rows([hog_test, fourier_test, canny_test])
 
-print("Features Stacked in: ", time()-tic)
+del (hog_train, fourier_train, canny_train, hog_test, fourier_test, canny_test)
+
+print("Features Stacked in: ", time() - tic)
 
 ##############################################################################################
 ################################ Principal Component Analysis ################################
@@ -181,29 +212,46 @@ print("Features Stacked in: ", time()-tic)
 tic = time()
 
 # Normalize the stacked features
-from sklearn.preprocessing import StandardScaler
-stacked_features = StandardScaler().fit_transform(stacked_features)
+scaler = StandardScaler()
+scaler.fit(stacked_features)
+stacked_features = scaler.transform(stacked_features)
+stacked_features_test = scaler.transform(stacked_features_test)
 
-# Run PCA on the stacked features
-pca = PCA(n_components=0.95)
-pca.fit(stacked_features)
+# # Run PCA on the stacked features
+# pca = PCA(n_components=0.95)
+# pca.fit(stacked_features)
+#
+# # Save out the PCA model
+# with open(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\PCA.pkl", "wb") as f:
+#     pickle.dump(pca, f)
+
+# # Plot the explained variance
+# plt.figure(figsize=(20,10))
+# plt.plot(np.cumsum(pca.explained_variance_ratio_))
+# plt.xlabel('Number of Components')
+# plt.ylabel('Explained Variance')
+# plt.title('Explained Variance vs. Number of Components')
+# plt.grid()
+# plt.show()
+
+# Load the PCA model
+with open(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\PCA.pkl", "rb") as f:
+    pca = pickle.load(f)
+
 X = pca.transform(stacked_features)
+X_test = pca.transform(stacked_features_test)
 
-# Plot the explained variance
-plt.figure(figsize=(20,10))
-plt.plot(np.cumsum(pca.explained_variance_ratio_))
-plt.xlabel('Number of Components')
-plt.ylabel('Explained Variance')
-plt.title('Explained Variance vs. Number of Components')
-plt.grid()
-plt.show()
+# Trim X to the number of components that explain 90% of the variance
+n_components = 2000
+X = X[:, :n_components]
+X_test = X_test[:, :n_components]
 
-print("PCA Completed in: ", time()-tic)
+print("PCA Completed in: ", time() - tic)
 
-##############################################################################################
-################################ Classification  #############################################
-##############################################################################################
-
-
+# Save out X, X_test, Targets, and Test_Targets as numpy arrays
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\X.npy", X)
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\X_test.npy", X_test)
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\targets.npy", train_targets)
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\test_targets.npy", test_targets)
 
 
