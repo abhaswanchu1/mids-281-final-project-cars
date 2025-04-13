@@ -42,6 +42,7 @@ plt.show()
 # Display the ROC Curve for each of the 4 classes
 # Get the probabilities for each class
 probs = clf.predict_proba(X_test)
+probs # Make Binary
 classes = clf.classes_
 # Calculate the ROC for each class
 for i in range(len(classes)):

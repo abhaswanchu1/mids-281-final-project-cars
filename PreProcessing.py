@@ -7,7 +7,11 @@ from skimage import data, exposure
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 from time import time
-
+import torchvision.models as models
+from torchvision import transforms
+from torch import nn
+from PIL import Image
+import torch
 from sklearn.preprocessing import StandardScaler, LabelBinarizer
 import pickle
 
@@ -112,14 +116,18 @@ HOG transform, Forrier Transform, and Canny Edge Detect on images, save features
 '''
 tic = time()
 
+def hog_images(images):
+    hog_features = []
+    for img in images:
+        fd, hog_feature = hog(img, orientations=8, pixels_per_cell=(16, 16), visualize=True,
+                          cells_per_block=(1, 1), channel_axis=-1) # Uncomment to Plot HOG feature
+        hog_image_rescaled = exposure.rescale_intensity(hog_feature, in_range=(0, 10))
+        hog_features.append(hog_image_rescaled)
+    return hog_features
 
 def hog_features(images):
     hog_features = []
     for img in images:
-        # fd, hog_feature = hog(img, orientations=8, pixels_per_cell=(16, 16), visualize=True,
-        #                   cells_per_block=(1, 1), channel_axis=-1) # Uncomment to Plot HOG feature
-        # hog_image_rescaled = exposure.rescale_intensity(hog_feature, in_range=(0, 10))
-        # hog_features.append(hog_image_rescaled)
         hog_feature = hog(img, orientations=8, pixels_per_cell=(16, 16),
                            cells_per_block=(1, 1), channel_axis=-1)
         hog_features.append(hog_feature)
@@ -181,8 +189,55 @@ canny_test = canny_features(test_images)
 print("Features Built in: ", time() - tic)
 
 ##############################################################################################
+############################ Pretrained NN Feature Generation  ###############################
+##############################################################################################
+tic = time()
+
+preprocess = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+])
+
+def slice_model(original_model, from_layer=None, to_layer=None):
+    return nn.Sequential(*list(original_model.children())[from_layer:to_layer])
+
+resnet101 = models.resnet101(pretrained=True)
+model_conv_features = slice_model(resnet101,to_layer=-1)
+model_conv_features.eval()
+print(f"ResNet101 Model Loaded")
+
+def torch_process_image(in_images):
+    processed_images = []
+    for i in range(len(in_images)):
+        image = in_images[i]
+        image = preprocess(Image.fromarray(image))
+        image = model_conv_features(image.unsqueeze(0)).squeeze(0)
+        image = image.detach().numpy().flatten()
+        processed_images.append(image)
+    return processed_images
+
+def torch_process_image(in_images):
+    # Convert list of NumPy arrays to a batch of preprocessed tensors
+    images = [preprocess(Image.fromarray(img)) for img in in_images]  # Preprocess all
+    batch = torch.stack(images)  # Shape: (batch_size, 3, 224, 224)
+
+    # Disable gradient tracking for inference
+    with torch.no_grad():
+        features = model_conv_features(batch)  # Shape: (batch_size, C, H, W)
+        features = features.view(features.size(0), -1)  # Flatten each feature map
+    # Return as a list of flattened NumPy arrays
+    resnet_features = [features[i].numpy() for i in range(features.size(0))]
+    return resnet_features
+
+resnet_train_embedding = torch_process_image(train_images)
+resnet_test_embedding = torch_process_image(test_images)
+
+print("ResNet Features Built in: ", time() - tic)
+##############################################################################################
 ############################ Flatten and Stack Features Images ###############################
 ##############################################################################################
+
+
 # Flatten all features into a single row
 tic = time()
 
@@ -195,15 +250,15 @@ def stack_rows(features):
     '''
     stacked = np.array([
         np.concatenate([feature[i].flatten() for feature in features])
-        for i in range(len(features[0]))
-    ])
+        for i in range(len(features[0]))])
     return stacked
 
 
-stacked_features = stack_rows([hog_train, fourier_train, canny_train])
-stacked_features_test = stack_rows([hog_test, fourier_test, canny_test])
+stacked_features = stack_rows([hog_train, fourier_train, canny_train, resnet_train_embedding])
+stacked_features_test = stack_rows([hog_test, fourier_test, canny_test, resnet_test_embedding])
 
-del (hog_train, fourier_train, canny_train, hog_test, fourier_test, canny_test)
+del (hog_train, fourier_train, canny_train, hog_test, fourier_test, canny_test, resnet_train_embedding,
+     resnet_test_embedding, train_images, test_images)
 
 print("Features Stacked in: ", time() - tic)
 
@@ -221,22 +276,22 @@ stacked_features_test = scaler.transform(stacked_features_test)
 # # Run PCA on the stacked features
 # pca = PCA(n_components=0.95)
 # pca.fit(stacked_features)
-#
+
 # # Save out the PCA model
-# with open(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\PCA.pkl", "wb") as f:
+# with open(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\PCAWithResnetFeatures.pkl", "wb") as f:
 #     pickle.dump(pca, f)
 
-# # Plot the explained variance
-# plt.figure(figsize=(20,10))
-# plt.plot(np.cumsum(pca.explained_variance_ratio_))
-# plt.xlabel('Number of Components')
-# plt.ylabel('Explained Variance')
-# plt.title('Explained Variance vs. Number of Components')
-# plt.grid()
-# plt.show()
+# Plot the explained variance
+plt.figure(figsize=(20,10))
+plt.plot(np.cumsum(pca.explained_variance_ratio_))
+plt.xlabel('Number of Components')
+plt.ylabel('Explained Variance')
+plt.title('Explained Variance vs. Number of Components')
+plt.grid()
+plt.show()
 
-# Load the PCA model
-with open(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\PCA.pkl", "rb") as f:
+# # Load the PCA model
+with open(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\PCAWithResnetFeatures.pkl", "rb") as f:
     pca = pickle.load(f)
 
 X = pca.transform(stacked_features)
@@ -250,9 +305,9 @@ X_test = X_test[:, :n_components]
 print("PCA Completed in: ", time() - tic)
 
 # Save out X, X_test, Targets, and Test_Targets as numpy arrays
-np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\X.npy", X)
-np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\X_test.npy", X_test)
-np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\targets.npy", train_targets)
-np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\test_targets.npy", test_targets)
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\XWithResNetFeatures.npy", X)
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\X_testWithResNetFeatures.npy", X_test)
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\targetsWithResNetFeatures.npy", train_targets)
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\test_targetsWithResNetFeatures.npy", test_targets)
 
 
