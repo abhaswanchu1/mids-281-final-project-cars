@@ -10,6 +10,12 @@ from sklearn.preprocessing import LabelBinarizer
 ##############################################################################################
 ########################  Load Images  ########################################################
 ##############################################################################################
+# Load the train and test data Without ResNet Features
+X = np.load(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\X.npy")
+X_test = np.load(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\X_test.npy")
+Y = np.load(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\targets.npy")
+Y_test = np.load(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\test_targets.npy")
+
 # Load the train and test data
 X = np.load(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\XWithResNetFeatures.npy")
 X_test = np.load(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\X_testWithResNetFeatures.npy")
@@ -39,6 +45,10 @@ cm_test = confusion_matrix(Y_test, preds_test)
 disp_test = ConfusionMatrixDisplay(confusion_matrix=cm_test, display_labels=clf.classes_)
 disp_test.plot(cmap=plt.cm.Blues)
 plt.show()
+
+##############################################################################################
+################################ ROC Displays  ###############################################
+##############################################################################################
 
 # Display the ROC Curve for each of the 4 classes
 # Get the probabilities for each class
