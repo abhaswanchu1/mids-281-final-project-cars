@@ -54,7 +54,8 @@ def load_images(df):
 
 
 train_images, train_targets = load_images(train_df)
-test_images, test_targets = load_images(test_df)
+test_images, test_targets = load_images(test_df[:(len(train_df) // 2)])
+val_images, val_targets = load_images(test_df[(len(train_df) // 2):])
 
 # Plot the Images and their labels
 plt.figure(figsize=(20, 10))
@@ -89,7 +90,6 @@ def augment_images(images, targets):
 
 # # Plot the Augmented Images and their labels
 augmented_images, augmented_targets = augment_images(train_images, train_targets)
-augmented_images_test, augmented_targets_test = augment_images(test_images, test_targets)
 
 plt.figure(figsize=(20, 10))
 for i in range(10):
@@ -101,10 +101,8 @@ plt.show()
 
 train_images.extend(augmented_images)
 train_targets.extend(augmented_targets)
-test_images.extend(augmented_images_test)
-test_targets.extend(augmented_targets_test)
 
-del (augmented_images, augmented_targets, augmented_images_test, augmented_targets_test)
+del (augmented_images, augmented_targets)
 
 print("Images Augmented in: ", time() - tic)
 
@@ -159,6 +157,16 @@ def canny_features(images):
 hog_train = hog_features(train_images)
 fourier_train = fourier_features(train_images)
 canny_train = canny_features(train_images)
+
+# Export Train Features for Seperate PCA Analysis
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\hog_train.npy", hog_train)
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\fourier_train.npy", fourier_train)
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\canny_train.npy", canny_train)
+
+# Validation Features
+hog_val = hog_features(val_images)
+fourier_val = fourier_features(val_images)
+canny_val = canny_features(val_images)
 
 # Test Features
 hog_test = hog_features(test_images)
@@ -229,8 +237,14 @@ def torch_process_image(in_images):
     resnet_features = [features[i].numpy() for i in range(features.size(0))]
     return resnet_features
 
+# Process the images through the model
 resnet_train_embedding = torch_process_image(train_images)
+resnet_val_embedding = torch_process_image(val_images)
 resnet_test_embedding = torch_process_image(test_images)
+
+# Export Train Features for Seperate PCA Analysis
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\resnet_train_embedding.npy", resnet_train_embedding)
+
 
 print("ResNet Features Built in: ", time() - tic)
 ##############################################################################################
@@ -256,6 +270,7 @@ def stack_rows(features):
 
 stacked_features = stack_rows([hog_train, fourier_train, canny_train, resnet_train_embedding])
 stacked_features_test = stack_rows([hog_test, fourier_test, canny_test, resnet_test_embedding])
+stacked_features_val = stack_rows([hog_val, fourier_val, canny_val, resnet_val_embedding])
 
 del (hog_train, fourier_train, canny_train, hog_test, fourier_test, canny_test, resnet_train_embedding,
      resnet_test_embedding, train_images, test_images)
@@ -271,7 +286,13 @@ tic = time()
 scaler = StandardScaler()
 scaler.fit(stacked_features)
 stacked_features = scaler.transform(stacked_features)
+stacked_features_val = scaler.transform(stacked_features_val)
 stacked_features_test = scaler.transform(stacked_features_test)
+
+# Export Stacked Features for PCA vs. Model Performance Analysis
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\stacked_features.npy", stacked_features)
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\stacked_features_val.npy", stacked_features_val)
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\stacked_features_test.npy", stacked_features_test)
 
 # # Run PCA on the stacked features
 # pca = PCA(n_components=0.95)
@@ -280,6 +301,10 @@ stacked_features_test = scaler.transform(stacked_features_test)
 # # Save out the PCA model
 # with open(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\PCAWithResnetFeatures.pkl", "wb") as f:
 #     pickle.dump(pca, f)
+
+# # Load the PCA model
+with open(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\PCAWithResnetFeatures.pkl", "rb") as f:
+    pca = pickle.load(f)
 
 # Plot the explained variance
 plt.figure(figsize=(20,10))
@@ -290,24 +315,25 @@ plt.title('Explained Variance vs. Number of Components')
 plt.grid()
 plt.show()
 
-# # Load the PCA model
-with open(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\PCAWithResnetFeatures.pkl", "rb") as f:
-    pca = pickle.load(f)
-
+# Transform the Stacked Features
 X = pca.transform(stacked_features)
 X_test = pca.transform(stacked_features_test)
+X_val = pca.transform(stacked_features_val)
 
 # Trim X to the number of components that explain 90% of the variance
 n_components = 2000
 X = X[:, :n_components]
 X_test = X_test[:, :n_components]
+X_val = X_val[:, :n_components]
 
 print("PCA Completed in: ", time() - tic)
 
 # Save out X, X_test, Targets, and Test_Targets as numpy arrays
-np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\XWithResNetFeatures.npy", X)
-np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\X_testWithResNetFeatures.npy", X_test)
-np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\targetsWithResNetFeatures.npy", train_targets)
-np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\test_targetsWithResNetFeatures.npy", test_targets)
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\XWithResNetFeatures2000PCA.npy", X)
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\X_valWithResNetFeatures2000PCA.npy", X_val)
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\X_testWithResNetFeatures2000PCA.npy", X_test)
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\targetsWithResNetFeatures2000PCA.npy", train_targets)
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\val_targetsWithResNetFeatures2000PCA.npy", val_targets)
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\test_targetsWithResNetFeatures2000PCA.npy", test_targets)
 
 
