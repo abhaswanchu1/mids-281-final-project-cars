@@ -54,8 +54,8 @@ def load_images(df):
 
 
 train_images, train_targets = load_images(train_df)
-test_images, test_targets = load_images(test_df[:(len(train_df) // 2)])
-val_images, val_targets = load_images(test_df[(len(train_df) // 2):])
+test_images, test_targets = load_images(test_df[:(len(test_df) // 2)])
+val_images, val_targets = load_images(test_df[(len(test_df) // 2):])
 
 # Plot the Images and their labels
 plt.figure(figsize=(20, 10))
@@ -159,9 +159,9 @@ fourier_train = fourier_features(train_images)
 canny_train = canny_features(train_images)
 
 # Export Train Features for Seperate PCA Analysis
-np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\hog_train.npy", hog_train)
-np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\fourier_train.npy", fourier_train)
-np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\canny_train.npy", canny_train)
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\FeatureVectors\hog_train.npy", hog_train)
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\FeatureVectors\fourier_train.npy", fourier_train)
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\FeatureVectors\canny_train.npy", canny_train)
 
 # Validation Features
 hog_val = hog_features(val_images)
@@ -243,15 +243,12 @@ resnet_val_embedding = torch_process_image(val_images)
 resnet_test_embedding = torch_process_image(test_images)
 
 # Export Train Features for Seperate PCA Analysis
-np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\resnet_train_embedding.npy", resnet_train_embedding)
-
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\FeatureVectors\resnet_train_embedding.npy", resnet_train_embedding)
 
 print("ResNet Features Built in: ", time() - tic)
 ##############################################################################################
 ############################ Flatten and Stack Features Images ###############################
 ##############################################################################################
-
-
 # Flatten all features into a single row
 tic = time()
 
@@ -263,8 +260,7 @@ def stack_rows(features):
     Returns a 2D numpy array.
     '''
     stacked = np.array([
-        np.concatenate([feature[i].flatten() for feature in features])
-        for i in range(len(features[0]))])
+        np.concatenate([feature[i].flatten() for feature in features]) for i in range(len(features[0]))])
     return stacked
 
 
@@ -290,21 +286,21 @@ stacked_features_val = scaler.transform(stacked_features_val)
 stacked_features_test = scaler.transform(stacked_features_test)
 
 # Export Stacked Features for PCA vs. Model Performance Analysis
-np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\stacked_features.npy", stacked_features)
-np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\stacked_features_val.npy", stacked_features_val)
-np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\stacked_features_test.npy", stacked_features_test)
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\FeatureVectors\stacked_features.npy", stacked_features)
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\FeatureVectors\stacked_features_val.npy", stacked_features_val)
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\FeatureVectors\stacked_features_test.npy", stacked_features_test)
 
-# # Run PCA on the stacked features
-# pca = PCA(n_components=0.95)
-# pca.fit(stacked_features)
+# Run PCA on the stacked features
+pca = PCA(n_components=0.95)
+pca.fit(stacked_features)
 
-# # Save out the PCA model
-# with open(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\PCAWithResnetFeatures.pkl", "wb") as f:
-#     pickle.dump(pca, f)
+# Save out the PCA model
+with open(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\PCAWithResnetFeatures.pkl", "wb") as f:
+    pickle.dump(pca, f)
 
-# # Load the PCA model
-with open(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\PCAWithResnetFeatures.pkl", "rb") as f:
-    pca = pickle.load(f)
+# # # Load the PCA model
+# with open(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\PCAWithResnetFeatures.pkl", "rb") as f:
+#     pca = pickle.load(f)
 
 # Plot the explained variance
 plt.figure(figsize=(20,10))
@@ -332,8 +328,8 @@ print("PCA Completed in: ", time() - tic)
 np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\XWithResNetFeatures2000PCA.npy", X)
 np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\X_valWithResNetFeatures2000PCA.npy", X_val)
 np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\X_testWithResNetFeatures2000PCA.npy", X_test)
-np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\targetsWithResNetFeatures2000PCA.npy", train_targets)
-np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\val_targetsWithResNetFeatures2000PCA.npy", val_targets)
-np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\test_targetsWithResNetFeatures2000PCA.npy", test_targets)
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\targets.npy", train_targets)
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\val_targets.npy", val_targets)
+np.save(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\test_targets.npy", test_targets)
 
 
