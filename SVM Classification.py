@@ -4,34 +4,116 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn import svm
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, RocCurveDisplay, roc_auc_score
-from sklearn.metrics import roc_curve, auc
+from sklearn.metrics import roc_curve, auc, f1_score
 from sklearn.preprocessing import LabelBinarizer
+from sklearn.model_selection import ParameterGrid
+import pickle
+from time import time
 
 ##############################################################################################
 ########################  Load Images  ########################################################
 ##############################################################################################
-# Load the train and test data Without ResNet Features
-X = np.load(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\X.npy")
-X_test = np.load(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\X_test.npy")
-Y = np.load(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\targets.npy")
-Y_test = np.load(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\test_targets.npy")
+# # Load the train and test data Without ResNet Features
+# X = np.load(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\X.npy")
+# X_test = np.load(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\X_test.npy")
+# Y = np.load(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\targets.npy")
+# Y_test = np.load(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\test_targets.npy")
 
 # Load the train and test data
-X = np.load(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\XWithResNetFeatures.npy")
-X_test = np.load(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\X_testWithResNetFeatures.npy")
-Y = np.load(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\targetsWithResNetFeatures.npy")
-Y_test = np.load(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\test_targetsWithResNetFeatures.npy")
+X = np.load(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\XWithResNetFeatures2000PCA.npy")
+X_val = np.load(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\X_valWithResNetFeatures2000PCA.npy")
+X_test = np.load(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\X_testWithResNetFeatures2000PCA.npy")
+Y = np.load(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\targets.npy")
+Y_val = np.load(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\val_targets.npy")
+Y_test = np.load(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\test_targets.npy")
 
 
 ##############################################################################################
-################################ Classification  #############################################
+################################ HyperParam Grid Search  #####################################
 ##############################################################################################
-# tic = time()
+# # Set up the hyperparameter grid
+param_grid = {
+    'C': [0.1, 1, 10],
+    'kernel': ['linear', 'poly', 'rbf', 'sigmoid']}
+
+# # Initialize the SVM classifier
+clf = svm.SVC(probability=True, max_iter=3000)
+
+# Prep Data for AUC Score
+label_binarizer = LabelBinarizer().fit(Y)
+y_onehot_train = label_binarizer.transform(Y)
+y_onehot_val = label_binarizer.transform(Y_val)
+n_classes = y_onehot_train.shape[1]
+
+# # Perform grid search with ParameterGrid and a loop to iterate through the parameters
+results = []
+for param in ParameterGrid(param_grid):
+    # Set the parameters for the classifier
+    clf.set_params(**param)
+    # Fit the model on the training data
+    clf.fit(X, Y)
+    # Calculate the AUC score, Accuracy, and Weighted F1 Score on the Training and Validation data
+    train_score = clf.predict_proba(X)
+    fpr, tpr, _ = roc_curve(y_onehot_train.ravel(), train_score.ravel())
+    auc_train = auc(fpr, tpr)
+    accuracy_train = clf.score(X, Y)
+    f1_train = f1_score(Y, clf.predict(X), average='weighted')
+    # Val
+    val_score = clf.predict_proba(X_val)
+    fpr, tpr, _ = roc_curve(y_onehot_val.ravel(), val_score.ravel())
+    auc_val = auc(fpr, tpr)
+    accuracy_val = clf.score(X_val, Y_val)
+    f1_val = f1_score(Y_val, clf.predict(X_val), average='weighted')
+    # Append the results to the list
+    results.append({
+        'C': param['C'],
+        'Kernel': param['kernel'],
+        'Train AUC': auc_train,
+        'Train Accuracy': accuracy_train,
+        'Val AUC': auc_val,
+        'Val Accuracy': accuracy_val,
+        'Train F1 Score': f1_train,
+        'Val F1 Score': f1_val
+    })
+    print(f"Trained SVM with C={param['C']} and kernel={param['kernel']}")
+
+# Convert the results to a DataFrame
+results_df = pd.DataFrame(results)
+results_df.to_csv(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\SVM_ParamGridSearch_Results.csv", index=False)
+
+##############################################################################################
+################################ Classification With Optimal Model  ##########################
+##############################################################################################
+
 
 # Run SVM on X with the targets
-clf = svm.SVC(kernel='linear', probability=True)
+clf = svm.SVC(kernel='linear', probability=True, C=1, max_iter=3000)
+tic = time()
 clf.fit(X, Y)
+train_time = time() - tic
+tic = time()
 preds = clf.predict(X)
+pred_time = time() - tic
+tic = time()
+preds_val = clf.predict(X_val)
+val_pred_time = time() - tic
+tic = time()
+preds_test = clf.predict(X_test)
+preds_test_time = time() - tic
+
+# Print the training time, prediction time, and validation prediction time
+print(f"Trained SVM in {train_time:.2f} seconds")
+print(f"Predicted SVM in {pred_time:.2f} seconds")
+print(f"Predicted SVM on validation set in {val_pred_time:.2f} seconds")
+print(f"Predicted SVM on test set in {preds_test_time:.2f} seconds")
+
+# Print the Weighted F1 Score on the Training, Validation, and Test data
+f1_train = f1_score(Y, preds, average='weighted')
+f1_val = f1_score(Y_val, preds_val, average='weighted')
+f1_test = f1_score(Y_test, preds_test, average='weighted')
+print(f"Weighted F1 Score on Training Data: {f1_train:.2f}")
+print(f"Weighted F1 Score on Validation Data: {f1_val:.2f}")
+print(f"Weighted F1 Score on Test Data: {f1_test:.2f}")
 
 # Display the Confusion Matrix on Training Data
 cm = confusion_matrix(Y, preds)
