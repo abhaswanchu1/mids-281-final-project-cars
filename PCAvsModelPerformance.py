@@ -10,7 +10,7 @@ import pickle
 import numpy as np
 from sklearn import svm
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import roc_curve, auc
+from sklearn.metrics import roc_curve, auc, f1_score, accuracy_score
 from sklearn.preprocessing import LabelBinarizer
 import time
 import pandas as pd
@@ -46,8 +46,8 @@ for comp_num in comps:
     print(X.shape)
     # Fit the SVM (and Time it)
     tic = time.time()
-    # clf = LogisticRegression(max_iter=3000, multi_class='multinomial', solver='lbfgs') # Uncomment for LogReg
-    clf = svm.SVC(kernel='linear', probability=True, max_iter=3000) # Uncomment for SVM
+    clf = LogisticRegression(max_iter=3000, multi_class='multinomial', solver='lbfgs') # Uncomment for LogReg
+    # clf = svm.SVC(kernel='linear', probability=True, max_iter=3000) # Uncomment for SVM
     clf.fit(X, targets)
     toc = time.time()
     train_time = toc - tic
@@ -66,12 +66,14 @@ for comp_num in comps:
     train_score = clf.predict_proba(X)
     fpr, tpr, _ = roc_curve(y_onehot_train.ravel(), train_score.ravel())
     auc_train = auc(fpr, tpr)
-    accuracy_train = clf.score(X, targets)
+    accuracy_train = accuracy_score(targets, preds)
+    f1_train = f1_score(targets, preds, average='weighted')
     # Val
     val_score = clf.predict_proba(pca_features_val[:, :comp_num])
     fpr, tpr, _ = roc_curve(y_onehot_val.ravel(), val_score.ravel())
     auc_val = auc(fpr, tpr)
-    accuracy_val = clf.score(pca_features_val[:, :comp_num], val_targets)
+    accuracy_val = accuracy_score(val_targets, preds_val)
+    f1_val = f1_score(val_targets, preds_val, average='weighted')
     # Store the Results
     results.append({
         'Components': comp_num,
@@ -81,24 +83,28 @@ for comp_num in comps:
         'Train AUC': auc_train,
         'Train Accuracy': accuracy_train,
         'Val AUC': auc_val,
-        'Val Accuracy': accuracy_val
+        'Val Accuracy': accuracy_val,
+        'Train F1 Score': f1_train,
+        'Val F1 Score': f1_val
     })
 
 # Convert to DataFrame
 results_df = pd.DataFrame(results)
 
 # # Save to CSV
-results_df.to_csv(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\PCA_Component_Sensitivity_SVM.csv",
-                  index=False)
+# results_df.to_csv(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\PCA_Component_Sensitivity_SVM.csv",
+#                   index=False)
+results_df.to_csv(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\PCA_Component_Sensitivity_LogReg.csv",
+                     index=False)
 
 # Plot the Results with Components on X-Axis, time on right Y-axis, and AUC on left Y-axis
 fig, ax1 = plt.subplots(figsize=(10, 6))
 # Plot Train AUC
-ax1.plot(results_df['Components'], results_df['Train AUC'], label='Train AUC', color='#D55E00', marker='o')
-ax1.plot(results_df['Components'], results_df['Val AUC'], label='Val AUC', color='#009E73', marker='o')
+ax1.plot(results_df['Components'], results_df['Train F1 Score'], label='Train f1', color='#D55E00', marker='o')
+ax1.plot(results_df['Components'], results_df['Val F1 Score'], label='Val AUC', color='#009E73', marker='o')
 ax1.set_xlabel('Number of PCA Components')
-ax1.set_ylabel('AUC Score')
-ax1.set_title('PCA Component Sensitivity Analysis (SVM)')
+ax1.set_ylabel('Weighted F1 Score')
+ax1.set_title('PCA Component Sensitivity Analysis (LogReg)')
 ax1.legend(loc='upper left')
 # Create a second y-axis for the time
 ax2 = ax1.twinx()
