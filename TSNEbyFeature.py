@@ -29,6 +29,10 @@ fourier_features = scaler.fit_transform(fourier_features.reshape(7060, 224*224))
 canny_features = scaler.fit_transform(canny_features.reshape(7060, 224*224))
 resnet_features = scaler.fit_transform(resnet_features)
 
+#########################################################
+##### Generate TSNE for hand and ANN features ###########
+#########################################################
+
 # Color Dictionary for TSNE plots
 color_dict = {
     'Audi': '#0072B2',
@@ -64,7 +68,9 @@ TSNE_PLOT(fourier_features, targets, 't-SNE of Fourier Features')
 TSNE_PLOT(canny_features, targets, 't-SNE of Canny Features')
 TSNE_PLOT(resnet_features, targets, 't-SNE of ResNet Features')
 
-# PCA by Feature
+#########################################################
+##### Generate PCA for hand and ANN features ############
+#########################################################
 
 # Import PCA on All Features from Preprocessing
 with open(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\PCAWithResnetFeatures.pkl", "rb") as f:

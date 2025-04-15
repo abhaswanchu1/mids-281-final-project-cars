@@ -7,7 +7,6 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, RocCurveDi
 from sklearn.metrics import roc_curve, auc, f1_score, accuracy_score
 from sklearn.preprocessing import LabelBinarizer
 from sklearn.model_selection import ParameterGrid
-import pickle
 from time import time
 
 ##############################################################################################
@@ -31,63 +30,62 @@ Y_test = np.load(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\test
 ##############################################################################################
 ################################ HyperParam Grid Search  #####################################
 ##############################################################################################
-# # Set up the hyperparameter grid
-param_grid = {
-    'C': [0.1, 1, 10],
-    'kernel': ['linear', 'poly', 'rbf']}
-
-# # Initialize the SVM classifier
-clf = svm.SVC(probability=True, max_iter=3000)
-
-# Prep Data for AUC Score
-label_binarizer = LabelBinarizer().fit(Y)
-y_onehot_train = label_binarizer.transform(Y)
-y_onehot_val = label_binarizer.transform(Y_val)
-n_classes = y_onehot_train.shape[1]
-
-# # Perform grid search with ParameterGrid and a loop to iterate through the parameters
-results = []
-for param in ParameterGrid(param_grid):
-    # Set the parameters for the classifier
-    clf.set_params(**param)
-    # Fit the model on the training data
-    clf.fit(X, Y)
-    # Calculate the AUC score, Accuracy, and Weighted F1 Score on the Training and Validation data
-    train_score = clf.predict_proba(X)
-    fpr, tpr, _ = roc_curve(y_onehot_train.ravel(), train_score.ravel())
-    auc_train = auc(fpr, tpr)
-    accuracy_train = accuracy_score(Y, clf.predict(X))
-    f1_train = f1_score(Y, clf.predict(X), average='weighted')
-    # Val
-    val_score = clf.predict_proba(X_val)
-    fpr, tpr, _ = roc_curve(y_onehot_val.ravel(), val_score.ravel())
-    auc_val = auc(fpr, tpr)
-    accuracy_val = accuracy_score(Y_val, clf.predict(X_val))
-    f1_val = f1_score(Y_val, clf.predict(X_val), average='weighted')
-    # Append the results to the list
-    results.append({
-        'C': param['C'],
-        'Kernel': param['kernel'],
-        'Train AUC': auc_train,
-        'Train Accuracy': accuracy_train,
-        'Val AUC': auc_val,
-        'Val Accuracy': accuracy_val,
-        'Train F1 Score': f1_train,
-        'Val F1 Score': f1_val
-    })
-    print(f"Trained SVM with C={param['C']} and kernel={param['kernel']}")
-
-# Convert the results to a DataFrame
-results_df = pd.DataFrame(results)
-results_df.to_csv(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\SVM_ParamGridSearch_Results.csv", index=False)
+# # # Set up the hyperparameter grid
+# param_grid = {
+#     'C': [0.1, 1, 10],
+#     'kernel': ['linear', 'poly', 'rbf']}
+#
+# # # Initialize the SVM classifier
+# clf = svm.SVC(probability=True, max_iter=3000)
+#
+# # Prep Data for AUC Score
+# label_binarizer = LabelBinarizer().fit(Y)
+# y_onehot_train = label_binarizer.transform(Y)
+# y_onehot_val = label_binarizer.transform(Y_val)
+# n_classes = y_onehot_train.shape[1]
+#
+# # # Perform grid search with ParameterGrid and a loop to iterate through the parameters
+# results = []
+# for param in ParameterGrid(param_grid):
+#     # Set the parameters for the classifier
+#     clf.set_params(**param)
+#     # Fit the model on the training data
+#     clf.fit(X, Y)
+#     # Calculate the AUC score, Accuracy, and Weighted F1 Score on the Training and Validation data
+#     train_score = clf.predict_proba(X)
+#     fpr, tpr, _ = roc_curve(y_onehot_train.ravel(), train_score.ravel())
+#     auc_train = auc(fpr, tpr)
+#     accuracy_train = accuracy_score(Y, clf.predict(X))
+#     f1_train = f1_score(Y, clf.predict(X), average='weighted')
+#     # Val
+#     val_score = clf.predict_proba(X_val)
+#     fpr, tpr, _ = roc_curve(y_onehot_val.ravel(), val_score.ravel())
+#     auc_val = auc(fpr, tpr)
+#     accuracy_val = accuracy_score(Y_val, clf.predict(X_val))
+#     f1_val = f1_score(Y_val, clf.predict(X_val), average='weighted')
+#     # Append the results to the list
+#     results.append({
+#         'C': param['C'],
+#         'Kernel': param['kernel'],
+#         'Train AUC': auc_train,
+#         'Train Accuracy': accuracy_train,
+#         'Val AUC': auc_val,
+#         'Val Accuracy': accuracy_val,
+#         'Train F1 Score': f1_train,
+#         'Val F1 Score': f1_val
+#     })
+#     print(f"Trained SVM with C={param['C']} and kernel={param['kernel']}")
+#
+# # Convert the results to a DataFrame
+# results_df = pd.DataFrame(results)
+# results_df.to_csv(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\SVM_ParamGridSearch_Results.csv",
+#                   index=False)
 
 ##############################################################################################
 ################################ Classification With Optimal Model  ##########################
 ##############################################################################################
-
-
 # Run SVM on X with the targets
-clf = svm.SVC(kernel='linear', probability=True, C=1, max_iter=3000)
+clf = svm.SVC(kernel='rbf', probability=True, C=10, random_state=42)
 tic = time()
 clf.fit(X, Y)
 train_time = time() - tic

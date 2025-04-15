@@ -31,7 +31,7 @@ pca_features = pca.transform(standard_scaled_features) # PCA Transform the Stand
 pca_features_val = pca.transform(standard_scaled_features_val) # PCA Transform the Standard Scaled Features
 print("loaded data")
 
-# Set Up the AUC Score
+# Set Up the AUC Score Prerequisites
 label_binarizer = LabelBinarizer().fit(targets)
 y_onehot_train = label_binarizer.transform(targets)
 y_onehot_val = label_binarizer.transform(val_targets)
@@ -100,11 +100,12 @@ results_df.to_csv(r"C:\Users\mhurth\REPO\MIDS281\mids-281-final-project-cars\PCA
 # Plot the Results with Components on X-Axis, time on right Y-axis, and AUC on left Y-axis
 fig, ax1 = plt.subplots(figsize=(10, 6))
 # Plot Train AUC
-ax1.plot(results_df['Components'], results_df['Train F1 Score'], label='Train f1', color='#D55E00', marker='o')
-ax1.plot(results_df['Components'], results_df['Val F1 Score'], label='Val AUC', color='#009E73', marker='o')
+ax1.plot(results_df['Components'], results_df['Train F1 Score'], label='Train F1', color='#D55E00', marker='o')
+ax1.plot(results_df['Components'], results_df['Val F1 Score'], label='Val F1', color='#009E73', marker='o')
 ax1.set_xlabel('Number of PCA Components')
 ax1.set_ylabel('Weighted F1 Score')
 ax1.set_title('PCA Component Sensitivity Analysis (LogReg)')
+# ax1.set_title('PCA Component Sensitivity Analysis (SVM)')
 ax1.legend(loc='upper left')
 # Create a second y-axis for the time
 ax2 = ax1.twinx()

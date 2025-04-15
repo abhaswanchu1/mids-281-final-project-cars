@@ -7,7 +7,6 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, RocCurveDi
 from sklearn.metrics import roc_curve, auc, f1_score, accuracy_score
 from sklearn.preprocessing import LabelBinarizer
 from sklearn.model_selection import ParameterGrid
-import pickle
 from time import time
 
 ##############################################################################################
